@@ -235,6 +235,8 @@ apfInv {A} {B} {x} {y} p f = J D d x y p
     d : (x : A) → D x x r
     d x = r
 
+-- compostion
+infixl 40 _∘_
 _∘_ : {A B C : Set} → (B → C) → (A → B) → (A → C)
 (g ∘ f) x = g (f x)
 
@@ -262,8 +264,7 @@ apfId {A} {x} {y} p = J D d x y p
 
 -- apfHom : {A} {x y z} (p q) : apf (p ∙ q) ≡ apf p ∙ apf q
 
--- transport : ∀ {A : Set} (P : A → Set) {x y : A} (p : x ≡ y)  → P x → P y
--- transport {A} P {x} {y} = J D d x y
+
 transport : ∀ {A : Set} {P : A → Set} {x y : A} (p : x ≡ y)  → P x → P y
 transport {A} {P} {x} {y} = J D d x y
   where
@@ -271,6 +272,31 @@ transport {A} {P} {x} {y} = J D d x y
     D x y p =  P x → P y
     d : (x : A) → D x x r
     d = λ x → id
+
+-- all from escardo
+-- trans' : {A : Set} {x y z : A} → x ≡ y → y ≡ z → x ≡ z
+-- trans' {x = x} p q = transport {P = λ - → x ≡ - } q p 
+
+-- trans' : {A : Set} {x y z : A} → x ≡ y → y ≡ z → x ≡ z
+-- trans' {x = x} {y = y} {z = z} p q = transport {P = λ - → - ≡ z } (p ⁻¹) q 
+
+-- i think this is the solution escardo's after
+-- trans' : {A : Set} {x y z : A} → x ≡ y → y ≡ z → x ≡ z
+-- trans' {x = x} {y = y} {z = z} p q = transport {P = λ _ → x ≡ z } p (transport {P = λ - → x ≡ - } q p) 
+
+-- inv : {A : Set} {x y  : A} → x ≡ y → y ≡ x 
+-- inv {x = x} p = transport {P = λ - → - ≡ x} p r
+
+ap : {A B : Set} (f : A → B) (x y : A) → x ≡ y → f x ≡ f y
+ap f x y p = transport {P = λ - → f x ≡ f - } p r
+
+
+-- transport : ∀ {A : Set} (P : A → Set) {x y : A} (p : x ≡ y)  → P x → P y
+-- transport {A} P {x} {y} = J D d x y
+
+-- transport' : ∀ {A : Set} {P : A → Set} {x y : A} (p : x ≡ y)  → P x → P y
+-- transport' r u = u
+
 
 p* : {A : Set} {P : A → Set} {x : A} {y : A} {p : x ≡ y} → P x → P y
 -- p* {P = P} {p = p} u = transport P p u
@@ -338,6 +364,7 @@ twothreeeleven r = r
 
 -- 2.4
 
+infixl 20 _~_
 -- defn of homotopy
 _~_ : {A : Set} {P : A → Set} (f g : (x : A) → P x) → Set
 -- _~_ {A} f g = (x : A) → f x ≡ g x
@@ -348,10 +375,12 @@ f ~ g  = (x : _) → f x ≡ g x
 refl~ : {A : Set} {P : A → Set} → ((f : (x : A) → P x) → f ~ f)
 refl~ f x = r
 
-sym~ : {A : Set} {P : A → Set} → ((f g : (x : A) → P x) → f ~ g → g ~ f)
+sym~ : {A : Set} {P : A → Set} → (f g : (x : A) → P x) → f ~ g → g ~ f
 sym~ f g fg = λ x → fg x ⁻¹
 
-trans~ : {A : Set} {P : A → Set} → ((f g h : (x : A) → P x) → f ~ g → g ~ h → f ~ h)
+
+-- composite homotopy
+trans~ : {A : Set} {P : A → Set} → (f g h : (x : A) → P x) → f ~ g → g ~ h → f ~ h
 trans~ f g h fg gh = λ x → (fg x) ∙ (gh x)
 
 
@@ -396,6 +425,7 @@ module ≡-Reasoning {A : Set} where
 
 open ≡-Reasoning
 
+-- 2.4.4
 coroll :  {A B : Set} {f : A → A} {x y : A} (p : x ≡ y) → ((H : f ~ (id {A})) → H (f x) ≡ apf f (H x) )
 coroll {A} {f = f} {x = x} p H =
   begin
@@ -424,3 +454,227 @@ coroll {A} {f = f} {x = x} p H =
     ll51 : r ≡ apf (λ z → z) (H x) ∙ H x ⁻¹
     ll51 = locallem ⁻¹ ∙ (apf (λ - → - ∙ H x ⁻¹) (apfId (H x))) ⁻¹
 
+-- Defn. 2.4.6
+-- has-inverse in Reijke
+qinv : {A B : Set} → (f : A → B) → Set 
+qinv {A} {B} f = Σ (B → A) λ g → (f ∘ g ~ id {B}) ×  (g ∘ f ~ id {A})
+
+-- examples
+
+-- 2.4.7
+
+qinvid : {A : Set} → qinv {A} {A} id
+qinvid = id , (λ x → r) , λ x → r
+
+-- 2.4.8
+
+p∙ : {A : Set} {x y z : A} (p : x ≡ y) → ((y ≡ z) → (x ≡ z)) 
+p∙ p = λ - → p ∙ -
+
+qinvcomp : {A : Set} {x y z : A} (p : x ≡ y) → qinv (p∙ {A} {x} {y} {z} p)
+qinvcomp p = (λ - → p ⁻¹ ∙ -) , sec , retr
+  where
+    sec : (λ x → p∙ p (p ⁻¹ ∙ x)) ~ (λ z → z)
+    sec x = 
+      begin
+        p∙ p (p ⁻¹ ∙ x)
+      ≡⟨ associativity p (p ⁻¹) x ⟩
+        (p ∙ p ⁻¹) ∙ x
+      ≡⟨ apf (λ - → - ∙ x) (rightInverse p) ⟩
+        r ∙ x
+      ≡⟨ iₗ x ⁻¹ ⟩
+        x ∎
+    retr : (λ x → p ⁻¹ ∙ p∙ p x) ~ (λ z → z)
+    retr x = 
+      begin
+        p ⁻¹ ∙ p∙ p x
+      ≡⟨ associativity (p ⁻¹) p x ⟩
+        (p ⁻¹ ∙ p) ∙ x
+      ≡⟨ apf (λ - → - ∙ x) (leftInverse p) ⟩
+        x ∎
+
+isequiv : {A B : Set} → (f : A → B) → Set 
+isequiv {A} {B} f = Σ (B → A) λ g → (f ∘ g ~ id {B}) ×  Σ (B → A) λ g → (g ∘ f ~ id {A})
+
+qinv->isequiv : {A B : Set} → (f : A → B) → qinv f → isequiv f
+qinv->isequiv f (g , α , β) = g , α , g , β
+
+-- not the same is as the book, but I can't understand what the book is doing.  maybe this can be a feature
+isequiv->qinv : {A B : Set} → (f : A → B) →  isequiv f → qinv f 
+isequiv->qinv f (g , α , g' , β ) = (g' ∘ f ∘ g) , sec , retr
+  where
+    sec : (λ x → f (g' (f (g x)))) ~ (λ z → z)
+    sec x = apf f (β (g x)) ∙ α x
+      -- begin f (g' (f (g x)))
+      --   ≡⟨ apf f (β (g x)) ⟩
+      -- f (g x)
+      --   ≡⟨ α x ⟩
+      -- x ∎
+    retr : (λ x → g' (f (g (f x)))) ~ (λ z → z)
+    retr x = apf g' (α (f x)) ∙ β x
+      -- begin g' (f (g (f x)))
+      -- ≡⟨ apf g' (α (f x)) ⟩
+      -- g' (f x)
+      -- ≡⟨ β x ⟩
+      -- x ∎
+
+-- book defn, confusing because of the "let this be the composite homotopy" which mixes both human semantic content as well as formal typing information
+isequiv->qinv' : {A B : Set} → (f : A → B) →  isequiv f → qinv f 
+isequiv->qinv' f (g , α , h , β ) = g , α , β'
+  where
+    -- γ : λ x → (trans~ ? ? ? ? ?) x -- trans~ g (g' ∘ f ∘ g) g' ? ? -- {!trans~ g (g' ∘ f ∘ g) g' ? ? !}
+    γ : (λ x → g x) ~ λ x → h x 
+    γ x = β (g x) ⁻¹ ∙ apf h (α x)
+    β' : (λ x → g (f x)) ~ (λ z → z)
+    β' x = (γ (f x)) ∙ β x
+
+-- \simeq ≃
+
+_≃_ : (A B : Set) → Set
+A ≃ B = Σ (A → B) λ f → isequiv f
+
+
+≃refl : {A : Set} → A ≃ A
+≃refl = (id) , (qi qinvid)
+  where
+    qi : qinv (λ z → z) → isequiv (λ z → z)
+    qi = qinv->isequiv (id )
+-- type equivalence is an equivalence relation, 2.4.12
+-- qinv->isequiv
+
+-- how to find this in agda automatically?
+comm× : {A B : Set} → A × B → B × A
+comm× (a , b) = (b , a)
+
+≃sym : {A B : Set} → A ≃ B → B ≃ A
+≃sym (f , eqf) = f-1 , ef (f , comm× sndqf)
+  where
+    qf : isequiv f → qinv f
+    qf = isequiv->qinv f 
+    f-1 : _ → _
+    f-1 = fst (qf eqf)
+    sndqf : ((λ x → f (fst (isequiv->qinv f eqf) x)) ~ (λ z → z)) ×
+              ((λ x → fst (isequiv->qinv f eqf) (f x)) ~ (λ z → z))
+    sndqf = snd (qf eqf)
+    ef : qinv f-1 → isequiv f-1
+    ef = qinv->isequiv f-1
+
+-- is there any way to make this pattern matching easier
+≃trans : {A B C : Set} → A ≃ B → B ≃ C → A ≃ C
+≃trans (f , eqf) (g , eqg) = (g ∘ f) , qinv->isequiv (λ z → g (f z)) ((f-1 ∘ g-1) , sec , retr) -- qgf
+  where
+    qf : isequiv f → qinv f
+    qf = isequiv->qinv f
+    f-1 = fst (qf eqf)
+    qg : isequiv g → qinv g
+    qg = isequiv->qinv g
+    g-1 = fst (qg eqg)
+    sec : (λ x → g (f (f-1 (g-1 x)))) ~ (λ z → z)
+    sec x = 
+            begin g (f (f-1 (g-1 x)))
+            ≡⟨ apf g (fst (snd (qf eqf)) (g-1 x)) ⟩
+            g (g-1 x)
+            ≡⟨ fst (snd (qg eqg)) x ⟩
+            x ∎
+    retr : (λ x → f-1 (g-1 (g (f x)))) ~ (λ z → z)
+    retr x =
+             begin f-1 (g-1 (g (f x)))
+             ≡⟨ apf f-1 ((snd (snd (qg eqg)) (f x))) ⟩
+             f-1 (f x)
+             ≡⟨ snd (snd (qf eqf)) x ⟩
+             x ∎
+
+
+-- 2.6.1
+fprodId : {A B : Set} {x y : A × B} → _≡_ {A × B} x y → ((fst x) ≡ (fst y)) × ((snd x) ≡ (snd y))
+fprodId p = (apf fst p) , (apf snd p)
+-- fprodId r = r , r
+
+-- 2.6.2
+equivfprod : {A B : Set} (x y : A × B) → isequiv (fprodId {x = x} {y = y} ) 
+equivfprod (x1 , y1) (x2 , y2) = qinv->isequiv fprodId (sn , h1 , h2)
+  where
+    sn : (x1 ≡ x2) × (y1 ≡ y2) → (x1 , y1) ≡ (x2 , y2)
+    sn (r , r) = r
+    h1 : (λ x → fprodId (sn x)) ~ (λ z → z)
+    h1 (r , r) = r
+    -- h1 (r , r) = r
+    h2 : (λ x → sn (fprodId x)) ~ (λ z → z)
+    h2 r = r
+
+-- 2.6.4
+-- alternative name consistent with book, A×B
+×fam : {Z : Set} {A B : Z → Set} → (Z → Set)
+×fam {A = A} {B = B} z = A z × B z
+
+transport× : {Z : Set} {A B : Z → Set} {z w : Z} (p : z ≡ w) (x : ×fam {Z} {A} {B} z) → (transport p x ) ≡ (transport {Z} {A} p (fst x) , transport {Z} {B} p (snd x))
+transport× r s = r
+
+fprod : {A B A' B' : Set} (g : A → A') (h : B → B') → (A × B → A' × B')
+fprod g h x = g (fst x) , h (snd x)
+
+-- inverse of fprodId
+pair= : {A B : Set} {x y : A × B} → (fst x ≡ fst y) × (snd x ≡ snd y) → x ≡ y
+pair= (r , r) = r
+
+-- 2.6.5
+functorProdEq : {A B A' B' : Set} (g : A → A') (h : B → B')  (x y : A × B) (p : fst x ≡ fst y) (q : snd x ≡ snd y) →  apf (λ - → fprod g h -) (pair= (p , q)) ≡ pair= (apf g p , apf h q)
+functorProdEq g h (a , b) (.a , .b) r r = r
+
+
+-- 2.7.2
+-- rename f to g to be consistent with book
+equivfDprod : {A : Set} {P : A → Set} (w w' : Σ A (λ x → P x)) → (w ≡ w') ≃ Σ (fst w ≡ fst w') λ p → p* {p = p} (snd w) ≡ snd w'
+equivfDprod (w1 , w2) (w1' , w2') = f , qinv->isequiv f (f-1 , ff-1 , f-1f)
+  where
+    f : (w1 , w2) ≡ (w1' , w2') → Σ (w1 ≡ w1') (λ p → p* {p = p} w2 ≡ w2')
+    f r = r , r
+    f-1 : Σ (w1 ≡ w1') (λ p → p* {p = p} w2 ≡ w2') → (w1 , w2) ≡ (w1' , w2')
+    -- f-1 (r , psndw) = apf (λ - → (w1 , -)) psndw
+    f-1 (r , r) = r
+    ff-1 : (λ x → f (f-1 x)) ~ (λ z → z)
+    ff-1 (r , r) = r
+    f-1f : (λ x → f-1 (f x)) ~ (λ z → z)
+    f-1f r = r
+  
+-- 2.7.3
+etaDprod : {A : Set} {P : A → Set} (z : Σ A (λ x → P x)) → z ≡ (fst z , snd z)
+etaDprod z = r
+
+-- 2.7.4
+-- Σfam : {A : Set} {P : A → Set} (Q : Σ A (λ x → P x) → Set) → ((x : A) → Σ (P x) λ u → Q (x , u) )
+Σfam : {A : Set} {P : A → Set} (Q : Σ A (λ x → P x) → Set) → (A → Set)
+Σfam {P = P} Q x = Σ (P x) λ u → Q (x , u) 
+
+-- inverse of fprodId
+-- f-1 : Σ (w1 ≡ w1') (λ p → p* {p = p} w2 ≡ w2') → (w1 , w2) ≡ (w1' , w2')
+-- p* {p = fst p} w2)
+-- dpair= : {A : Set} {P : A → Set} {w1 w1' : A} {w2 : P w1 } {w2' : P w1'} (p : w1 ≡ w1') →  Σ (w1 ≡ w1') (λ p → p* {p = p} w2 ≡ w2') → (w1 , w2) ≡ (w1' , p* {p = p} w2)
+-- dpair= p = {!!}
+
+dpair= : {A : Set} {P : A → Set} {w1 w1' : A} {w2 : P w1 } {w2' : P w1'} →  (p : Σ (w1 ≡ w1') (λ p → p* {p = p} w2 ≡ w2')) → (w1 , w2) ≡ (w1' , w2')
+dpair= (r  , r) = r
+
+-- lift : {A : Set} {P : A → Set} {x y : A}  (u : P x) (p : x ≡ y) → (x , u) ≡ (y , p* {P = P} {p = p} u)
+-- lift {P} u r = r --could use J, but we'll skip the effort for now
+
+-- transportΣ : {A : Set} {P : A → Set} (Q : Σ A (λ x → P x) → Set) (x y : A) (p : x ≡ y) ((u , z) : Σfam Q x) → p* (u , z) ≡ (p* u  , {!pair=!} (((p , r) *) z)) -- {!!}  )
+
+transportΣ : {A : Set} {P : A → Set} (Q : Σ A (λ x → P x) → Set) (x y : A) (p : x ≡ y) ((u , z) : Σfam Q x)
+             →  _* {P = λ - → Σfam Q - } p (u , z) ≡ ((p *) u  , _* {P = λ - → Q ((fst -) , (snd -))} (dpair= (p , r)) z)
+transportΣ Q x .x r (u , z) = r -- some agda bug here.  try ctrl-c ctrl-a
+
+-- transportΣ : {A : Set} {P : A → Set} (Q : Σ A (λ x → P x) → Set) (x y : A) (p : x ≡ y) ((u , z) : Σfam Q x) → (p *) (u , z) ≡ ((p *) u  , ((dpair= (p , r)) *) z) -- {!!}  )
+-- transportΣ = {!!}
+
+-- _* : {A : Set} {P : A → Set} {x : A} {y : A} (p : x ≡ y) → P x → P y
+-- (p *) u = transport p u
+
+-- transportΣ : {Z : Set} {A B : Z → Set} {z w : Z} (p : z ≡ w) (x : ×fam {Z} {A} {B} z) → (transport p x ) ≡ (transport {Z} {A} p (fst x) , transport {Z} {B} p (snd x))
+
+
+-- begin {!!}
+-- ≡⟨ {!!} ⟩
+-- {!!}
+-- ≡⟨ {!!} ⟩
+-- {!!} ∎

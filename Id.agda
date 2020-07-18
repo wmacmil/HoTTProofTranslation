@@ -1,5 +1,4 @@
 
-module Id where
 
 open import Agda.Builtin.Sigma public
 
@@ -27,8 +26,10 @@ _⁻¹ {A} {x} {y} p = J D d x y p
     d : (a : A) → D a a r
     d a = r
 
-
 infixr 50 _⁻¹
+
+inv : {A : Set} {x y : A} → x ≡ y → y ≡ x
+inv r = r
 
 -- better notation by keeping variables implicit, we loose the ability to
 -- utilize eta equality, b/c of how J is defined, perhaps J should have implicit
@@ -72,6 +73,9 @@ leftInverse {A} {x} {y} p = J D d x y p
     D x y p = p ⁻¹ ∙ p ≡ r
     d : (x : A) → D x x r
     d x = r
+
+-- lI : {A : Set} {x y : A} (p : x ≡ y) → p ⁻¹ ∙ p ≡ r 
+-- lI r = r
 
 rightInverse : {A : Set} {x y : A} (p : x ≡ y) → p ∙ p ⁻¹ ≡ r 
 rightInverse {A} {x} {y} p = J D d x y p
@@ -154,6 +158,9 @@ apf {A} {B} {x} {y} f p = J D d x y p
     D x y p = {f : A → B} → f x ≡ f y
     d : (x : A) → D x x r
     d = λ x → r 
+
+ap : {A B : Set} → {x y : A} → (f : A → B) → (x ≡ y) → f x ≡ f y
+ap f r = r
 
 lem20 : {A : Set} → {a : A} → (α : Ω² {A} a) → (iᵣ r ⁻¹ ∙ α ∙ iᵣ r) ≡ α
 lem20 α = iᵣ (α) ⁻¹
@@ -287,8 +294,8 @@ transport {A} {P} {x} {y} = J D d x y
 -- inv : {A : Set} {x y  : A} → x ≡ y → y ≡ x 
 -- inv {x = x} p = transport {P = λ - → - ≡ x} p r
 
-ap : {A B : Set} (f : A → B) (x y : A) → x ≡ y → f x ≡ f y
-ap f x y p = transport {P = λ - → f x ≡ f - } p r
+-- ap : {A B : Set} (f : A → B) (x y : A) → x ≡ y → f x ≡ f y
+-- ap f x y p = transport {P = λ - → f x ≡ f - } p r
 
 
 -- transport : ∀ {A : Set} (P : A → Set) {x y : A} (p : x ≡ y)  → P x → P y
@@ -318,7 +325,7 @@ arrow = (A B : Set) {b : B} → ((x : A) → B)
 
 constDepType : (A B : Set) → (A → Set)
 constDepType A B = λ _ → B
-
+  
 -- transportArrow : {A B : Set} → {x y : A} (p : x ≡ y) → B → B
 -- transportArrow {A} {B} p = transport (constDepType A B) p
 
@@ -493,6 +500,29 @@ qinvcomp p = (λ - → p ⁻¹ ∙ -) , sec , retr
       ≡⟨ apf (λ - → - ∙ x) (leftInverse p) ⟩
         x ∎
 
+
+-- 2.4.9
+sec' : {A : Set} {P : A → Set} {x y : A} (p : x ≡ y) → (λ x₁ → transport {P = P} p (transport (p ⁻¹) x₁)) ~ (λ z → z)
+sec' r x = r
+
+qinvtransp : {A : Set} {P : A → Set} {x y : A} (p : x ≡ y) → qinv (transport {P = P} p)
+qinvtransp {A} {P} {x} {y} p = transport (p ⁻¹) , sec , retr p
+  where
+    sec : (λ x₁ → transport p (transport (p ⁻¹) x₁)) ~ (λ z → z)
+    sec z = sec' p z 
+            -- type inference not working, ugh.
+            -- begin transport p (transport (p ⁻¹) z)
+            -- ≡⟨ twothreenine (p ⁻¹) p ⟩
+            -- ((p ⁻¹ ∙ p) *) z
+            -- -- ≡⟨ apf {A = _ ≡ _} {B = P _} {x = p ⁻¹ ∙ p} {y = r} (λ - → (- *) z) (leftInverse p) ⟩
+            -- ≡⟨ apf (λ - → (- *) z) (leftInverse p) ⟩
+            -- -- ≡⟨ apf ? (leftInverse p) ⟩
+            -- (r *) z 
+            -- ≡⟨ {!!} ⟩
+            -- z ∎
+    retr : (p : x ≡ y) → (λ x₁ → transport (p ⁻¹) (transport p x₁)) ~ (λ z → z)
+    retr r z = r
+
 isequiv : {A B : Set} → (f : A → B) → Set 
 isequiv {A} {B} f = Σ (B → A) λ g → (f ∘ g ~ id {B}) ×  Σ (B → A) λ g → (g ∘ f ~ id {A})
 
@@ -646,35 +676,307 @@ etaDprod z = r
 Σfam : {A : Set} {P : A → Set} (Q : Σ A (λ x → P x) → Set) → (A → Set)
 Σfam {P = P} Q x = Σ (P x) λ u → Q (x , u) 
 
--- inverse of fprodId
--- f-1 : Σ (w1 ≡ w1') (λ p → p* {p = p} w2 ≡ w2') → (w1 , w2) ≡ (w1' , w2')
--- p* {p = fst p} w2)
--- dpair= : {A : Set} {P : A → Set} {w1 w1' : A} {w2 : P w1 } {w2' : P w1'} (p : w1 ≡ w1') →  Σ (w1 ≡ w1') (λ p → p* {p = p} w2 ≡ w2') → (w1 , w2) ≡ (w1' , p* {p = p} w2)
--- dpair= p = {!!}
-
 dpair= : {A : Set} {P : A → Set} {w1 w1' : A} {w2 : P w1 } {w2' : P w1'} →  (p : Σ (w1 ≡ w1') (λ p → p* {p = p} w2 ≡ w2')) → (w1 , w2) ≡ (w1' , w2')
 dpair= (r  , r) = r
-
--- lift : {A : Set} {P : A → Set} {x y : A}  (u : P x) (p : x ≡ y) → (x , u) ≡ (y , p* {P = P} {p = p} u)
--- lift {P} u r = r --could use J, but we'll skip the effort for now
-
--- transportΣ : {A : Set} {P : A → Set} (Q : Σ A (λ x → P x) → Set) (x y : A) (p : x ≡ y) ((u , z) : Σfam Q x) → p* (u , z) ≡ (p* u  , {!pair=!} (((p , r) *) z)) -- {!!}  )
 
 transportΣ : {A : Set} {P : A → Set} (Q : Σ A (λ x → P x) → Set) (x y : A) (p : x ≡ y) ((u , z) : Σfam Q x)
              →  _* {P = λ - → Σfam Q - } p (u , z) ≡ ((p *) u  , _* {P = λ - → Q ((fst -) , (snd -))} (dpair= (p , r)) z)
 transportΣ Q x .x r (u , z) = r -- some agda bug here.  try ctrl-c ctrl-a
 
--- transportΣ : {A : Set} {P : A → Set} (Q : Σ A (λ x → P x) → Set) (x y : A) (p : x ≡ y) ((u , z) : Σfam Q x) → (p *) (u , z) ≡ ((p *) u  , ((dpair= (p , r)) *) z) -- {!!}  )
--- transportΣ = {!!}
+fDprod : {A A' : Set} {P : A → Set} {Q : A' → Set} (g : A → A') (h : (a : A) →  P a → Q (g a)) → (Σ A λ a → P a) → (Σ A' λ a' → Q a')
+fDprod g h (a , pa) = g a , h a pa
 
--- _* : {A : Set} {P : A → Set} {x : A} {y : A} (p : x ≡ y) → P x → P y
--- (p *) u = transport p u
+-- ap2 : {A B C : Set} (x x' : A) (y y' : B) (f : A → B → C)
+--          → (x ≡ x') → (y ≡ y') → (f x y ≡ f x' y')
+-- ap2 x x' y y' f r q = ap (λ - → f x -) y y' q
 
--- transportΣ : {Z : Set} {A B : Z → Set} {z w : Z} (p : z ≡ w) (x : ×fam {Z} {A} {B} z) → (transport p x ) ≡ (transport {Z} {A} p (fst x) , transport {Z} {B} p (snd x))
+ap2 : {A B C : Set} {x x' : A} {y y' : B} (f : A → B → C)
+      → (x ≡ x') → (y ≡ y') → (f x y ≡ f x' y')
+ap2 f r r = r
 
+-- ap2d : {A : Set} {x x' : A}  {P : A → Set} {y : P x} {y' : P x'} {C : (x : A) → P x → Set} (f : (x : A) → (y : P x) → C x y )
+--   → (p : x ≡ x') → (q : (p *) y ≡ y') →
+--   p* {p = q} (p* {p = p} (f x)) y ≡ {!f x' y'!}
+--   -- (f x y ≡ f x' y')
+-- ap2d = {!!}
+
+transportd : {X : Set } (A : X → Set  ) (B : (x : X) → A x → Set )
+  {x : X} ((a , b) : Σ (A x) λ a → B x a) {y : X} (p : x ≡ y)
+  → B x a → B y (transport {P = A} p a)
+transportd A B (a , b) r = id
+
+-- ap2d : {A : Set} {x x' : A}  {P : A → Set} {y : P x} {y' : P x'} {C : (x : A)
+--   → P x → Set} (f : (x : A) → (y : P x) → C x y )
+--   → (p : x ≡ x') → (q : p* {P = P} {p = p} y ≡ y') → 
+--   p* {P = C x'} {p = q} (transportd P C (y , f x y) p (f x y)) ≡ f x' y'
+-- ap2d f r r = {!!}
+
+-- functorDProdEq : {A A' : Set} {P : A → Set} {Q : A' → Set} (g : A → A') 
+--                  (h : (a : A) →  P a → Q (g a))
+--                  → (x y : Σ A λ a → P a)
+--                  → (p : fst x ≡ fst y) (q : p* {p = p} (snd x) ≡ snd y)
+--                  → apf (λ - → fDprod {P = P} {Q = Q} g h -) (dpair= (p , q))
+--                  ≡ dpair= (apf g p , ap2d h p {!q!} )
+-- functorDProdEq = {!!}
+
+
+-- 2.8
+data Unit : Set where
+  ⋆ : Unit
+
+-- in which the composite is referencing the type, not the function applications explicity..
+path1 : (x y : Unit) → (x ≡ y) ≃ Unit
+path1 x y = (λ p → ⋆) , qinv->isequiv (λ p → ⋆) (f-1 x y , ff-1 , f-1f x y)
+  where
+    f-1 : (x y : Unit) → Unit → x ≡ y
+    f-1 ⋆ ⋆ ⋆ = r
+    ff-1 : (λ x₁ → ⋆) ~ (λ z → z)
+    ff-1 ⋆ = r
+    f-1f : (x y : Unit) → (λ _ → f-1 x y ⋆) ~ (λ z → z)
+    f-1f ⋆ .⋆ r = r
+
+-- 2.9
+
+happly : {A : Set} {B : A → Set} {f g : (x : A) → B x} → f ≡ g → ((x : A) → f x ≡ g x )
+happly r x = r
+
+postulate
+  -- funext : ∀ {A : Set} {B : A → Set} {f g : (x : A) → B x} → isequiv (happly {f = f} {g = g})
+  funext : {A : Set} {B : A → Set} {f g : (x : A) → B x} →  ((x : A) → f x ≡ g x ) → f ≡ g
+
+-- betaPi : {A : Set} {B : A → Set} {f g : (x : A) → B x} (h : (x : A) → f x ≡ g x ) (x : A) → happly (funext h) x ≡ h x
+-- betaPi h x = {!!}
+
+-- etaPi :  {A : Set} {B : A → Set} {f g : (x : A) → B x} (p : f ≡ g) → p ≡ funext λ x → happly p x
+-- etaPi p = {!!}
+
+-- -- is this the first example where explict refl arguements are needed
+-- reflf :  {A : Set} {B : A → Set} {f : (x : A) → B x} → _≡_ {A = (x : A) → B x} r (funext λ x → r)
+-- reflf = ?
+
+-- -- is this the first example where explict refl arguements are needed
+-- α-1 :  {A : Set} {B : A → Set} {f g : (x : A) → B x} {α : f ≡ g} → α ⁻¹ ≡ funext (λ x → ((happly α x) ⁻¹))
+-- α-1 {A} {B} {f} {.f} {r} = {!r!}
+
+->fam : {X : Set} (A B : X → Set) → X → Set
+->fam A B x = A x → B x
+
+-- 2.9.4
+transportF : {X : Set} {A B : X → Set} {x1 x2 : X} {p : x1 ≡ x2} {f : A x1 → B x1} →
+             transport {P = ->fam A B} p f ≡  λ x → transport {P = B} p (f (transport {P = A} (p ⁻¹) x))
+             -- (transport {P = A} p a)
+transportF {X} {A} {B} {x1} {.x1} {r} {f} = funext (λ x → r)
 
 -- begin {!!}
 -- ≡⟨ {!!} ⟩
 -- {!!}
 -- ≡⟨ {!!} ⟩
 -- {!!} ∎
+
+data List (A : Set) : Set where
+  [] : List A
+  cons : A → List A → List A
+
+-- exercises Reijke ch 4.
+
+inv_assoc : {A : Set} {x y z : A} (p : x ≡ y) (q : y ≡ z) → (p ∙ q) ⁻¹ ≡ q ⁻¹ ∙ p ⁻¹
+inv_assoc r q = iᵣ (q ⁻¹)
+-- -- inv_assoc r r = r
+
+
+iscontr : (A : Set) → Set
+iscontr A =  Σ A λ a → (x : A) → (a ≡ x)
+
+-- singind : {A : Set} → (Σ A λ a → {!(B : A → Set) → !})
+-- singind {A} = {!!}
+
+data ⊤ : Set where
+  star  : ⊤
+
+data ⊥ : Set where
+
+abort : {A : Set} → ⊥ → A
+abort ()
+
+¬ : Set → Set
+¬ A = A → ⊥
+
+ind-unit :  {P : ⊤ → Set} → P star → ((x : ⊤) → P x)
+ind-unit p star = p
+
+const :  (A B : Set) → (b : B) → A → B
+const A B b a = b 
+
+ex51 :  {A : Set} {a : A} → ind-unit a ~ const ⊤ A a
+ex51 star = r
+
+-- -- -- apf (const A B b) z \
+-- helper :  {A B : Set} (b : B) → (x y : A) (z : x ≡ y) → apf {x = x} {y = y} (const A B b) z ≡ r
+-- helper b x .x r = r
+
+ex52 :  {A B : Set} (b : B) → (x y : A) → apf {x = x} {y = y} (const A B b) ~ const (x ≡ y) (b ≡ b) r
+ex52 b x .x r = r
+
+invisequiv : {A : Set} (x y : A) → isequiv (_⁻¹ {x = x} {y = y})
+invisequiv x y = qinv->isequiv _⁻¹ (_⁻¹ , doubleInv ,  doubleInv )
+-- invisequiv x y = _⁻¹ , doubleInv , _⁻¹ , doubleInv 
+
+-- p∙ : {A : Set} {x y z : A} (p : x ≡ y) → ((y ≡ z) → (x ≡ z)) 
+-- p∙ p = λ - → p ∙ -
+
+-- qinvcomp : {A : Set} {x y z : A} (p : x ≡ y) → qinv (p∙ {A} {x} {y} {z} p)
+-- qinvcomp p = (λ - → p ⁻¹ ∙ -) , sec , retr
+
+compisequiv : {A : Set} (x y z : A) (p : x ≡ y) → isequiv (_∙_ {x = x} {y = y} p {z = z})
+compisequiv x y z p = qinv->isequiv (p∙ p) (qinvcomp p)
+
+-- 5.4
+hmtpyinducedEqv : {A B : Set} (f g : A → B) → (H : f ~ g) → isequiv f → isequiv g
+hmtpyinducedEqv f g H (f' , ff' , g' , g'f) = f' , trans~ (λ x → g (f' x)) (λ x → f (f' x)) (λ x → x) (λ x → H (f' x) ⁻¹) ff'
+                                            , g' , (trans~ (λ x → g' (g x)) (λ x → g' (f x)) (λ x → x) (λ x → apf g' (H x ⁻¹)) g'f)
+
+hasSection : {A B : Set} (f : A → B) → Set
+hasSection {A} {B} f = Σ (B → A) λ g → (f ∘ g ~ id {B})
+
+hasRetraction : {A B : Set} (f : A → B) → Set
+hasRetraction {A} {B} f = Σ (B → A) λ g → (g ∘ f ~ id {A})
+
+-- 5.5
+-- {A B X : Set} (f : A → X) (h : A → X) (g : B → X) → (H : f ~ g ∘ h)
+
+eqvSec : {A B : Set} (f : A → B) → isequiv f → hasSection f
+eqvSec f (f1 , ff1 , g) = f1 , ff1
+
+eqvRetr : {A B : Set} (f : A → B) → isequiv f → hasRetraction f
+eqvRetr f (f1 , ff1 , g1 , gg1) = g1 , gg1
+
+secRetrEqv : {A B : Set} (f : A → B) → hasSection f → hasRetraction f → isequiv f
+secRetrEqv f (f-1 , ff-1) (f-1' , f-1'f) = (f-1 , ff-1 , f-1' , f-1'f)
+
+55a1 : {A B X : Set} (f : A → X) (h : A → B) (g : B → X) → (H : f ~ g ∘ h) → hasSection h → hasSection f → hasSection g
+55a1 f h g H (h-1 , hh-1) (f-1 , ff-1) = h ∘ f-1 , trans~ (λ x → g (h (f-1 x))) (f ∘ f-1) (λ x → x) (λ x → H (f-1 x) ⁻¹) ff-1
+
+55a2 : {A B X : Set} (f : A → X) (h : A → B) (g : B → X) → (H : f ~ g ∘ h) → hasSection h → hasSection g → hasSection f
+55a2 f h g H (h-1 , hh-1) (g-1 , gg-1) = h-1 ∘ g-1 , trans~ (λ x → f (h-1 (g-1 x))) (g ∘ h ∘ h-1 ∘ g-1) (λ x → x) (λ x → H (h-1 (g-1 x)))
+  (trans~ (λ x → g (h (h-1 (g-1 x)))) (g ∘ g-1) (λ x → x) (λ x → apf g (hh-1 (g-1 x))) gg-1)
+
+55b1 : {A B X : Set} (f : A → X) (h : A → B) (g : B → X) → (H : f ~ g ∘ h) → hasRetraction g → hasRetraction f → hasRetraction h
+55b1 f h g H (g-1 , g-1g) (f-1 , f-1f) = f-1 ∘ g , trans~ (λ x → f-1 (g (h x))) (f-1 ∘ f) (λ x → x) (λ x → apf f-1 (H x ⁻¹)) f-1f
+
+55b2 : {A B X : Set} (f : A → X) (h : A → B) (g : B → X) → (H : f ~ g ∘ h) → hasRetraction g → hasRetraction h → hasRetraction f
+55b2 f h g H (g-1 , g-1g) (h-1 , h-1h) = (λ z → h-1 (g-1 z)) , (trans~ (λ x → h-1 (g-1 (f x))) (h-1 ∘ g-1 ∘ g ∘ h) (λ x → x) (λ x → apf (h-1 ∘ g-1) (H x))
+  (trans~ (λ x → h-1 (g-1 (g (h x)))) (h-1 ∘ h) (λ x → x) (λ x → apf h-1 (g-1g (h x))) h-1h))
+
+dunno' : {A B X : Set} (f : A → X) (h : A → B) (g : B → X) → (H : f ~ g ∘ h) → isequiv f → isequiv g → isequiv h
+dunno' f h g H (f-1 , ff-1 , f'-1 , f'-1f) (g-1 , gg-1 , g'-1 , g'-1g) = secRetrEqv h (55a2 h f g'-1 (trans~ h (g'-1 ∘ g ∘ h) (λ x → g'-1 (f x)) (λ x → g'-1g (h x) ⁻¹) (λ x → apf g'-1 (H x ⁻¹))) (f-1 , ff-1) (g , g'-1g)) (55b1 f h g H (g'-1 , g'-1g) (f'-1 , f'-1f))
+
+3for2a : {A B X : Set} (f : A → X) (g : X → B) → isequiv f → isequiv g → isequiv (g ∘ f)
+3for2a f g ef eg = secRetrEqv (λ x → g (f x)) (55a2 (g ∘ f) f g (λ x → r) (eqvSec f ef) (eqvSec g eg))
+                                              (55b2 (g ∘ f) f g (λ x → r) (eqvRetr g eg) (eqvRetr f ef))
+
+dunno : {A B X : Set} (f : A → X) (h : A → B) (g : B → X) → (H : f ~ g ∘ h) → isequiv f → isequiv h → isequiv g
+dunno f h g H (f-1 , ff-1 , f'-1 , f'-1f) (h-1 , hh-1 , h'-1 , h'-1h) = secRetrEqv g (55a1 f h g H (h-1 , hh-1) (f-1 , ff-1))
+  (55b2 g h-1 f (trans~ g (g ∘ h ∘ h-1) (λ x → f (h-1 x)) (λ x → apf g (hh-1 x ⁻¹)) λ x → (H (h-1 x) ⁻¹)) (f'-1 , f'-1f) (h , hh-1))
+
+3for2b : {A B X : Set} (f : A → X) (g : X → B) → isequiv f → isequiv (g ∘ f) → isequiv g
+3for2b f g ef egf = secRetrEqv g (55a1 (g ∘ f) f g (λ x → r) (eqvSec f ef) (eqvSec (λ z → g (f z)) egf)) (eqvRetr g (dunno (g ∘ f) f g (λ x → r) egf ef))
+
+3for2c : {A B X : Set} (f : A → X) (g : X → B) → isequiv g → isequiv (g ∘ f) → isequiv f
+3for2c f g eg egf = secRetrEqv f (eqvSec f (dunno' (g ∘ f) f g (λ x → r) egf eg)) (55b1 (g ∘ f) f g (λ x → r) (eqvRetr g eg) (eqvRetr (λ z → g (f z)) egf))
+
+open import Data.Bool
+
+notnot : (x : Bool) → not (not x) ≡ x
+notnot false = r
+notnot true = r
+
+notIsEqv : isequiv not
+notIsEqv = qinv->isequiv not (not , notnot , notnot)
+
+truefalsebot : true ≡ false → ⊥
+truefalsebot ()
+
+notSurjNotEqv : (f : Bool → Bool) → f false ≡ f true → ¬ (isequiv f)
+notSurjNotEqv f p (f' , ff' , f'' , f''f) = truefalsebot truefalse
+  where
+    retrTrue : f'' (f true) ≡ true
+    retrTrue = f''f true
+    retrFalse : f'' (f false) ≡ false
+    retrFalse = f''f false
+    lemma : f'' (f false) ≡ f'' (f true)
+    lemma = apf f'' p
+    truefalse : true ≡ false
+    truefalse = retrTrue ⁻¹ ∙ lemma ⁻¹ ∙ retrFalse
+
+data Nat : Set where
+  zer : Nat
+  suc : Nat → Nat
+  
+notsuczero : (x : Nat) → ¬ (suc x ≡ zer)
+notsuczero zer ()
+notsuczero (suc x) ()
+
+-- not true, only for ints
+sucEquiv : ¬ (isequiv suc)
+sucEquiv (f' , ff' , f'' , f''f)= notsuczero (f' zer) sec0
+  where
+    sec0 : suc (f' zer) ≡ zer
+    sec0 = ff' zer
+
+
+commcommx : ∀ {A} {B} (x : B × A) → comm× (comm× x) ≡ x
+commcommx (b , a) = r
+
+
+prodCommEqv : {A B : Set} → (A × B) ≃ (B × A)
+prodCommEqv = comm×  , (qinv->isequiv comm× (comm× , commcommx , commcommx ))
+ 
+open import Data.Sum
+
+comm⊎ : {A B : Set} → (A ⊎ B) → (B ⊎ A)
+comm⊎ (inj₁ x) = inj₂ x
+comm⊎ (inj₂ y) = inj₁ y
+
+commcomm+ : ∀ {A} {B} (x : B ⊎ A) → comm⊎ (comm⊎ x) ≡ x
+commcomm+ (inj₁ x) = r
+commcomm+ (inj₂ y) = r
+
+summCommEqv : {A B : Set} → (A ⊎ B) ≃ (B ⊎ A)
+summCommEqv = comm⊎ , qinv->isequiv comm⊎ (comm⊎ , commcomm+ , commcomm+)
+
+_retractof_ : Set → Set → Set
+A retractof B = Σ (A → B) λ f → hasRetraction f -- hasRetraction 
+
+-- here i has the retraction r'
+eight91 : {A B : Set} → (i : A → B) → (r' : B → A) → r' ∘ i ~ id → (x y : A) →  i x ≡ i y → x ≡ y
+eight91 i r' H x y p =
+  begin x
+  ≡⟨ inv (H x)  ⟩
+  (r' ∘ i) x
+  ≡⟨ ap r' p ⟩
+  (r' ∘ i) y
+  ≡⟨ H y ⟩
+  y ∎
+  -- begin x
+  -- ≡⟨ H x ⁻¹ ⟩
+  -- (r' ∘ i) x
+  -- ≡⟨ apf r' p ⟩
+  -- (r' ∘ i) y
+  -- ≡⟨ H y ⟩
+  -- y ∎
+
+help : ∀ {A} {B} (R : A retractof B) (x y : A) →
+  (λ x₁ → eight91 (fst R) (fst (snd R)) (λ - → snd (snd R) -) x y (ap (fst R) x₁))
+          ~ (λ z → z)
+help (R , R' , RR') x .x r = {!leftInverse (RR' x) !} --leftInverse {!RR'!}
+-- proving this basically becomes impossible now that we've tied our hands with J
+
+eight9 : {A B : Set} (R : A retractof B) → (x y : A) → (x ≡ y) retractof ((fst R x) ≡ (fst R y))
+eight9 R x y = apf (fst R) , eight91 (fst R) (fst (snd R)) (λ - → snd (snd R) -) x y , {!help!}
+
+
+-- begin ?
+-- ≡⟨ ? ⟩
+-- ?
+-- ≡⟨ ? ⟩
+-- ? ∎

@@ -1,0 +1,194 @@
+How to write a two arguement dependent application, apd, and use this to prove functoriality of such ap over equality of dependnet sigmas in agda.
+
+I'm trying to prove the functoriality of ap under the dependent product type, analgous to Theorem 2.6.5 in the HoTT book, in Agda, and am stuck as to how to how to present the type for he functoriality condition in the presense of the dependent type, as it requires transport.  The book suggests this as an exercise at the end of section 2.7.
+
+```
+functorDProdEq : {A A' : Set} {P : A → Set} {Q : A' → Set} (g : A → A')
+                 (h : (a : A) →  P a → Q (g a))
+                 → ((x1 , y1) (x2 , y2) : Σ A λ a → P a)
+                 → (p : x1 ≡ x2) (q : p* {p = p} y1 ≡ y2)
+                 → apf (λ - → fDprod g h -) (dpair= (p , q))
+                 ≡ dpair= ((apf g p , {!apd (ap2 h ? ?)!} ))
+functorDProdEq = {!!}
+```
+
+Above is the attempted definition, with a standalone file below from which the supporting material can be found.  The goal in the hole is :
+
+
+```
+Goal: p* (h (fst .patternInTele0) (snd .patternInTele0)) ≡
+      h (fst .patternInTele1) (snd .patternInTele1)
+```
+
+In a context seen below.  I don't understandthe patternInTele* business, as I don't know where it would have been declared, and would greatly appreciate any elaboration.  Additionally, my thought to implement a dependent application function with equalities, the second equality induced by the transportation of the former.  However, I can't even get this to work.  It seems that one would perform a *double transport* to get the desired result, but nothing I do on the lhs of the final equality seems to change the goal, which is always `C x y` instead of the desired `C x' y'`. Is this the proper way to think about defining what I'm after, and does this help solve the original problem of producing a correct functorial theorem statement?  What is the correct way to implement both `functorDProdEq` and `ap2d` in this context such that they economize on space, as the type signatures tend to get hairy?
+
+```
+ap2d : {A : Set} {x x' : A}  {P : A → Set} {y : P x} {y' : P x'} {C : (x : A)
+  → P x → Set} (f : (x : A) → (y : P x) → C x y )
+  → (p : x ≡ x') → (q : (p *) y ≡ y') →
+  p* {p = p} f x y ≡ {!!}
+  -- p* {p = q} (p* {p = p} (f x)) y ≡ {!f x' y'!}
+  -- (f x y ≡ f x' y')
+ap2d = {!!}
+```
+
+
+```
+--the context from above
+y2 : P (fst .patternInTele1)
+y2 = snd .patternInTele1
+x2 : A
+x2 = fst .patternInTele1
+y1 : P (fst .patternInTele0)
+y1 = snd .patternInTele0
+x1 : A
+x1 = fst .patternInTele0
+q  : p* (snd .patternInTele0) ≡ snd .patternInTele1
+p  : fst .patternInTele0 ≡ fst .patternInTele1
+.patternInTele1
+   : Σ A (λ a → P a)   (not in scope)
+.patternInTele0
+   : Σ A (λ a → P a)   (not in scope)
+h  : (a : A) → P a → Q (g a)
+g  : A → A'
+Q  : A' → Set
+P  : A → Set
+A' : Set
+A  : Set
+```
+
+And, finally, here's the code.
+
+```
+module question where
+
+open import Agda.Builtin.Sigma public
+
+data _≡_ {A : Set} (a : A) : A → Set where
+  r : a ≡ a
+
+infix 20 _≡_
+
+J : {A : Set}
+    → (D : (x y : A) → (x ≡ y) →  Set)
+    -- → (d : (a : A) → (D a a r ))
+    → ((a : A) → (D a a r ))
+    → (x y : A)
+    → (p : x ≡ y)
+    ------------------------------------
+    → D x y p
+J D d x .x r = d x
+
+-- ap\_
+apf : {A B : Set} → {x y : A} → (f : A → B) → (x ≡ y) → f x ≡ f y
+apf {A} {B} {x} {y} f p = J D d x y p
+  where
+    D : (x y : A) → x ≡ y → Set
+    D x y p = {f : A → B} → f x ≡ f y
+    d : (x : A) → D x x r
+    d = λ x → r 
+
+id : {A : Set} → A → A
+id = λ z → z
+
+transport : ∀ {A : Set} {P : A → Set} {x y : A} (p : x ≡ y)  → P x → P y
+transport {A} {P} {x} {y} = J D d x y
+  where
+    D : (x y : A) → x ≡ y → Set
+    D x y p =  P x → P y
+    d : (x : A) → D x x r
+    d = λ x → id
+
+p* : {A : Set} {P : A → Set} {x : A} {y : A} {p : x ≡ y} → P x → P y
+-- p* {P = P} {p = p} u = transport P p u
+p* {P = P} {p = p} u = transport p u
+
+_* : {A : Set} {P : A → Set} {x : A} {y : A} (p : x ≡ y) → P x → P y
+(p *) u = transport p u
+-- p * u = transport p u
+
+apd : {A : Set} {P : A → Set} (f : (x : A) → P x) {x y : A} {p : x ≡ y}
+  → p* {P = P} {p = p} (f x) ≡ f y
+apd {A} {P} f {x} {y} {p} = J D d x y p
+  where
+    D : (x y : A) → x ≡ y → Set
+    D x y p = p* {P = P} {p = p} (f x) ≡ f y
+    d : (x : A) → D x x r
+    d = λ x → r
+
+_×_ : Set → Set → Set
+A × B = Σ A (λ _ → B)
+
+-- 2.6.1
+fprodId : {A B : Set} {x y : A × B} → _≡_ {A × B} x y → ((fst x) ≡ (fst y)) × ((snd x) ≡ (snd y))
+fprodId p = (apf fst p) , (apf snd p)
+-- fprodId r = r , r
+
+-- 2.6.4
+-- alternative name consistent with book, A×B
+×fam : {Z : Set} {A B : Z → Set} → (Z → Set)
+×fam {A = A} {B = B} z = A z × B z
+
+transport× : {Z : Set} {A B : Z → Set} {z w : Z} (p : z ≡ w) (x : ×fam {Z} {A} {B} z) → (transport p x ) ≡ (transport {Z} {A} p (fst x) , transport {Z} {B} p (snd x))
+transport× r s = r
+
+fprod : {A B A' B' : Set} (g : A → A') (h : B → B') → (A × B → A' × B')
+fprod g h x = g (fst x) , h (snd x)
+
+-- inverse of fprodId
+pair= : {A B : Set} {x y : A × B} → (fst x ≡ fst y) × (snd x ≡ snd y) → x ≡ y
+pair= (r , r) = r
+
+-- 2.6.5
+functorProdEq : {A B A' B' : Set} (g : A → A') (h : B → B')  (x y : A × B) (p : fst x ≡ fst y) (q : snd x ≡ snd y) →  apf (λ - → fprod g h -) (pair= (p , q)) ≡ pair= (apf g p , apf h q)
+functorProdEq g h (a , b) (.a , .b) r r = r
+
+
+  
+-- 2.7.3
+etaDprod : {A : Set} {P : A → Set} (z : Σ A (λ x → P x)) → z ≡ (fst z , snd z)
+etaDprod z = r
+
+-- 2.7.4
+Σfam : {A : Set} {P : A → Set} (Q : Σ A (λ x → P x) → Set) → (A → Set)
+Σfam {P = P} Q x = Σ (P x) λ u → Q (x , u) 
+
+dpair= : {A : Set} {P : A → Set} {w1 w1' : A} {w2 : P w1 } {w2' : P w1'} →  (p : Σ (w1 ≡ w1') (λ p → p* {p = p} w2 ≡ w2')) → (w1 , w2) ≡ (w1' , w2')
+dpair= (r  , r) = r
+
+transportΣ : {A : Set} {P : A → Set} (Q : Σ A (λ x → P x) → Set) (x y : A) (p : x ≡ y) ((u , z) : Σfam Q x)
+             →  _* {P = λ - → Σfam Q - } p (u , z) ≡ ((p *) u  , _* {P = λ - → Q ((fst -) , (snd -))} (dpair= (p , r)) z)
+transportΣ Q x .x r (u , z) = r -- some agda bug here.  try ctrl-c ctrl-a
+
+fDprod : {A A' : Set} {P : A → Set} {Q : A' → Set} (g : A → A') (h : (a : A) →  P a → Q (g a)) → (Σ A λ a → P a) → (Σ A' λ a' → Q a')
+fDprod g h (a , pa) = g a , h a pa
+
+ap2 : {A B C : Set} {x x' : A} {y y' : B} (f : A → B → C)
+      → (x ≡ x') → (y ≡ y') → (f x y ≡ f x' y')
+ap2 f r r = r
+
+apd' : {A : Set} {P : A → Set} (f : (x : A) → P x) {x y : A} {p : x ≡ y}
+  → p* {P = P} {p = p} (f x) ≡ {!f y!}
+  -- →  (f x) ≡ {!!}
+apd' = {!!}
+
+ap2d : {A : Set} {x x' : A}  {P : A → Set} {y : P x} {y' : P x'} {C : (x : A)
+  → P x → Set} (f : (x : A) → (y : P x) → C x y )
+  → (p : x ≡ x') → (q : (p *) y ≡ y') →
+  p* {p = p} f x y ≡ {!!}
+  -- p* {p = q} (p* {p = p} (f x)) y ≡ {!f x' y'!}
+  -- (f x y ≡ f x' y')
+ap2d = {!!}
+
+-- (.patternInTele0 .patternInTele1 : Σ A P)
+
+functorDProdEq : {A A' : Set} {P : A → Set} {Q : A' → Set} (g : A → A') 
+                 (h : (a : A) →  P a → Q (g a))
+                 → ((x1 , y1) (x2 , y2) : Σ A λ a → P a)
+                 → (p : x1 ≡ x2) (q : p* {p = p} y1 ≡ y2)
+                 → apf (λ - → fDprod g h -) (dpair= (p , q))
+                 ≡ dpair= ((apf g p , {!apd (ap2 h ? ?)!} ))
+functorDProdEq = {!!}
+```
+
+
